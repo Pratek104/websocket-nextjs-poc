@@ -10,7 +10,7 @@ const handle = app.getRequestHandler();
 // Store connections by instance ID
 const instances = new Map<string, Set<WebSocket>>();
 
-const WS_PORT = 3001;
+const WS_PORT = process.env.WS_PORT || 3001;
 
 app.prepare().then(() => {
   // Next.js HTTP server

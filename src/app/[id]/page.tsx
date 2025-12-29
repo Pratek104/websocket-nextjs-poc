@@ -24,8 +24,8 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
     const name = `User-${Math.random().toString(36).slice(2, 6)}`;
     setSender(name);
 
-    const wsHost = window.location.hostname;
-    const ws = new WebSocket(`ws://${wsHost}:3001?instanceId=${id}`);
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://${window.location.hostname}:3001`;
+    const ws = new WebSocket(`${wsUrl}?instanceId=${id}`);
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);

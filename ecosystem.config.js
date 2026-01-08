@@ -1,24 +1,20 @@
 module.exports = {
   apps: [
     {
-      name: 'nextjs-app',
+      name: 'websocket-nextjs-poc',
       script: 'npm',
-      args: 'run start:next',
-      cwd: '/var/www/websocket-poc',
+      args: 'run start',
+      cwd: '/home/satri/testing/websocket-nextjs-poc',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 3012,
+        WS_PORT: 3013,
       },
-    },
-    {
-      name: 'websocket-server',
-      script: 'npm',
-      args: 'run start:ws',
-      cwd: '/var/www/websocket-poc',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3001,
-      },
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
     },
   ],
 };

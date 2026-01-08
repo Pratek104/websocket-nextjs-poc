@@ -6,15 +6,17 @@ import { useRouter } from 'next/navigation';
 export default function Home() {
   const [instances, setInstances] = useState<string[]>([]);
   const [newId, setNewId] = useState('');
+  const [currentUrl, setCurrentUrl] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     const saved = localStorage.getItem('ws-instances');
     if (saved) setInstances(JSON.parse(saved));
+    setCurrentUrl(window.location.origin);
   }, []);
 
   const createInstance = () => {
-    const id = newId.trim() || crypto.randomUUID().slice(0, 8);
+    const id = newId.trim() || (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`).slice(0, 8);
     if (!instances.includes(id)) {
       const updated = [...instances, id];
       setInstances(updated);
@@ -33,7 +35,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">WebSocket POC</h1>
+        <h1 className="text-3xl font-bold mb-2">WebSocket POC</h1>
+        
+        {currentUrl && (
+          <div className="mb-8 p-4 bg-zinc-900 rounded-lg border border-zinc-800">
+            <p className="text-sm text-zinc-400 mb-1">HTTP Server:</p>
+            <p className="font-mono text-sm text-blue-400">{currentUrl}</p>
+            <p className="text-sm text-zinc-400 mt-3 mb-1">WebSocket Server:</p>
+            <p className="font-mono text-sm text-green-400">ws://{currentUrl.replace(/^https?:\/\//, '')}:3013</p>
+          </div>
+        )}
         
         <div className="flex gap-3 mb-8">
           <input

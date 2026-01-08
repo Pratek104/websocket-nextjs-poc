@@ -40,6 +40,17 @@ app.prepare().then(() => {
 
     console.log(`Client connected to instance: ${instanceId}`);
 
+    // Keepalive ping every 30 seconds
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000);
+
+    ws.on('pong', () => {
+      console.log(`Pong received from instance: ${instanceId}`);
+    });
+
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
@@ -64,6 +75,7 @@ app.prepare().then(() => {
     });
 
     ws.on('close', () => {
+      clearInterval(pingInterval);
       const clients = instances.get(instanceId);
       if (clients) {
         clients.delete(ws);

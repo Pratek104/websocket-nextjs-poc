@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 // Standalone WebSocket server for deployment to Railway/Render/Fly.io
 const instances = new Map<string, Set<WebSocket>>();
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3013;
 
 const server = createServer((req, res) => {
   // Health check endpoint

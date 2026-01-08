@@ -2,10 +2,16 @@
 
 import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
+import { 
+  Lightbulb, Plug, Thermometer, Snowflake, Flame, Droplet, 
+  DoorOpen, Wind, Tv, Music, Gamepad2, Monitor, Smartphone, 
+  Zap, Battery, Moon, Sun, Star, Sparkles, Palette,
+  Camera, Volume2, Wifi, Lock, Fan, ArrowLeft
+} from 'lucide-react';
+import { Toggle, GooeyFilter } from '@/components/ui/liquid-toggle';
 
 interface Message {
   id: string;
-  content?: string;
   pin?: { [key: number]: number };
   sender: string;
   instanceId: string;
@@ -15,12 +21,41 @@ interface Message {
 interface Device {
   pin: number;
   state: boolean;
+  label: string;
+  icon: string;
 }
+
+const ICONS = [
+  { name: 'Lightbulb', component: Lightbulb },
+  { name: 'Plug', component: Plug },
+  { name: 'Thermometer', component: Thermometer },
+  { name: 'Snowflake', component: Snowflake },
+  { name: 'Flame', component: Flame },
+  { name: 'Droplet', component: Droplet },
+  { name: 'DoorOpen', component: DoorOpen },
+  { name: 'Wind', component: Wind },
+  { name: 'Tv', component: Tv },
+  { name: 'Music', component: Music },
+  { name: 'Gamepad2', component: Gamepad2 },
+  { name: 'Monitor', component: Monitor },
+  { name: 'Smartphone', component: Smartphone },
+  { name: 'Zap', component: Zap },
+  { name: 'Battery', component: Battery },
+  { name: 'Moon', component: Moon },
+  { name: 'Sun', component: Sun },
+  { name: 'Star', component: Star },
+  { name: 'Sparkles', component: Sparkles },
+  { name: 'Palette', component: Palette },
+  { name: 'Camera', component: Camera },
+  { name: 'Volume2', component: Volume2 },
+  { name: 'Wifi', component: Wifi },
+  { name: 'Lock', component: Lock },
+  { name: 'Fan', component: Fan },
+];
 
 export default function InstancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
   const [sender, setSender] = useState('');
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
@@ -28,15 +63,21 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
   const [devices, setDevices] = useState<Device[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newPin, setNewPin] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [selectedIcon, setSelectedIcon] = useState(ICONS[0].name);
   const wsRef = useRef<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getIconComponent = (iconName: string) => {
+    const icon = ICONS.find(i => i.name === iconName);
+    return icon ? icon.component : Lightbulb;
+  };
 
   const connectWebSocket = () => {
     const name = sender || `User-${Math.random().toString(36).slice(2, 6)}`;
     if (!sender) setSender(name);
 
-    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://${window.location.hostname}:3013`;
+    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://194.163.172.56:3013`;
     const fullUrl = `${baseUrl}?instanceId=${id}`;
     
     setWsUrl(baseUrl);
@@ -74,10 +115,9 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
     ws.onmessage = (event) => {
       console.log('[WS] Message received:', event.data);
       const msg = JSON.parse(event.data) as Message;
-      setMessages((prev) => [...prev, msg]);
       
       // Sync device state from incoming pin messages
-      if (msg.pin && msg.sender !== sender) {
+      if (msg.pin) {
         const pinKey = Number(Object.keys(msg.pin)[0]);
         const pinValue = msg.pin[pinKey];
         setDevices(prev => prev.map(d => 
@@ -100,32 +140,22 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
     };
   }, [id]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const sendMessage = () => {
-    if (!input.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    const msg = {
-      id: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      content: input.trim(),
-      sender,
-    };
-
-    wsRef.current.send(JSON.stringify(msg));
-    setInput('');
-  };
-
   const addDevice = () => {
     const pinNumber = parseInt(newPin);
-    if (isNaN(pinNumber)) return;
+    if (isNaN(pinNumber) || !newLabel.trim()) return;
     if (devices.some(d => d.pin === pinNumber)) {
       alert('This PIN already exists!');
       return;
     }
-    setDevices(prev => [...prev, { pin: pinNumber, state: false }]);
+    setDevices(prev => [...prev, { 
+      pin: pinNumber, 
+      state: false, 
+      label: newLabel.trim(),
+      icon: selectedIcon 
+    }]);
     setNewPin('');
+    setNewLabel('');
+    setSelectedIcon(ICONS[0].name);
     setShowAddDialog(false);
   };
 
@@ -154,166 +184,218 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      <header className="p-4 border-b border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-zinc-400 hover:text-white">← Back</Link>
-          <h1 className="font-mono text-lg">/{id}</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          {wsUrl && (
-            <div className="text-xs text-zinc-500 font-mono">
-              {wsUrl}
-              {reconnectAttempts > 0 && (
-                <span className="ml-2 text-yellow-500">
-                  (reconnecting... {reconnectAttempts}/10)
-                </span>
-              )}
+    <div className="min-h-screen bg-black text-white">
+      <GooeyFilter />
+      <header className="bg-purple-950/30 border-b border-purple-900/50 p-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-2">
+              <ArrowLeft size={20} />
+              Back
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-white">
+                {id}
+              </h1>
+              <p className="text-sm text-purple-400/60">Smart Device Control</p>
             </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-sm text-zinc-400">{connected ? 'Connected' : 'Disconnected'}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            {wsUrl && reconnectAttempts > 0 && (
+              <div className="text-xs text-purple-400 font-mono">
+                Reconnecting... {reconnectAttempts}/10
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-900/30 border border-purple-800/50">
+              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-purple-400' : 'bg-purple-600'}`} />
+              <span className="text-sm">{connected ? 'Connected' : 'Disconnected'}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 flex gap-4">
-        {/* Devices Panel */}
-        <div className="w-64 shrink-0 border-r border-zinc-800 pr-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Devices</h2>
-            <button
-              onClick={() => setShowAddDialog(true)}
-              disabled={!connected}
-              className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-lg transition-colors"
-            >
-              + Add Device
-            </button>
+      <main className="max-w-7xl mx-auto p-8">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-semibold">Your Devices</h2>
+          <button
+            onClick={() => setShowAddDialog(true)}
+            disabled={!connected}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-950/50 disabled:text-purple-600 disabled:cursor-not-allowed rounded-xl font-medium transition-all"
+          >
+            + Add Device
+          </button>
+        </div>
+        
+        {devices.length === 0 ? (
+          <div className="text-center py-20">
+            <Monitor size={64} className="mx-auto mb-4 text-purple-700" />
+            <p className="text-purple-300/60 text-lg">No devices yet</p>
+            <p className="text-purple-400/40 text-sm mt-2">Add your first device to get started</p>
           </div>
-          
-          {devices.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No devices added yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {devices.map((device) => (
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {devices.map((device) => {
+              const IconComponent = getIconComponent(device.icon);
+              return (
                 <div
                   key={device.pin}
-                  className="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"
-                >
-                  <span className="font-mono text-sm">PIN {device.pin}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleDevice(device.pin)}
-                      disabled={!connected}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${
-                        device.state ? 'bg-green-500' : 'bg-zinc-600'
-                      } ${!connected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      <span
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                          device.state ? 'translate-x-7' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => removeDevice(device.pin)}
-                      className="text-red-400 hover:text-red-300 text-xs"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Chat Panel */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto space-y-3">
-            {messages.length === 0 ? (
-              <p className="text-zinc-500 text-center mt-8">No messages yet. Start the conversation!</p>
-            ) : (
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`max-w-md p-3 rounded-lg ${
-                    msg.sender === sender
-                      ? 'ml-auto bg-blue-600'
-                      : 'bg-zinc-800'
+                  className={`relative p-6 rounded-xl transition-all duration-300 ${
+                    device.state
+                      ? 'bg-purple-600/20 border border-purple-500/50'
+                      : 'bg-black border border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
-                  <p className="text-xs text-zinc-400 mb-1">{msg.sender}</p>
-                  {msg.content && <p>{msg.content}</p>}
-                  {msg.pin && (
-                    <p className="font-mono text-sm">
-                      PIN {Object.keys(msg.pin)[0]}: {Object.values(msg.pin)[0] === 1 ? '🟢 ON' : '🔴 OFF'}
-                    </p>
-                  )}
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  <button
+                    onClick={() => removeDevice(device.pin)}
+                    className={`absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                      device.state
+                        ? 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-300'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-500'
+                    }`}
+                  >
+                    ✕
+                  </button>
+                  
+                  <IconComponent size={48} className={`mb-4 ${device.state ? 'text-purple-300' : 'text-zinc-500'}`} />
+                  
+                  <h3 className="text-lg font-semibold mb-1">{device.label}</h3>
+                  <p className={`text-sm mb-4 font-mono ${device.state ? 'text-purple-400/50' : 'text-zinc-600'}`}>
+                    PIN {device.pin}
                   </p>
+                  
+                  <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-500 ${
+                    device.state
+                      ? 'bg-purple-500/10 border-purple-500/30'
+                      : 'bg-zinc-900 border-zinc-800'
+                  }`}>
+                    <span className={`text-sm font-medium transition-colors duration-500 ${device.state ? 'text-purple-400' : 'text-zinc-500'}`}>
+                      {device.state ? 'ON' : 'OFF'}
+                    </span>
+                    <Toggle
+                      checked={device.state}
+                      onCheckedChange={() => toggleDevice(device.pin)}
+                      variant="default"
+                      disabled={!connected}
+                    />
+                  </div>
                 </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
+              );
+            })}
           </div>
-        </div>
+        )}
       </main>
 
       {/* Add Device Dialog */}
       {showAddDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-700 w-80">
-            <h3 className="text-lg font-semibold mb-4">Add a Device</h3>
-            <input
-              type="number"
-              value={newPin}
-              onChange={(e) => setNewPin(e.target.value)}
-              placeholder="Enter PIN number"
-              className="w-full px-4 py-2 bg-zinc-800 rounded-lg border border-zinc-700 focus:outline-none focus:border-blue-500 mb-4"
-              autoFocus
-            />
-            <div className="flex gap-3 justify-end">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-br from-purple-950 to-black backdrop-blur-xl p-6 rounded-2xl border border-purple-800/30 w-full max-w-md shadow-2xl my-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-3xl font-bold text-white mb-1">
+                  Add Device
+                </h3>
+                <p className="text-purple-400/60 text-sm">Create a new smart device</p>
+              </div>
               <button
-                onClick={() => { setShowAddDialog(false); setNewPin(''); }}
-                className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg transition-colors"
+                onClick={() => { 
+                  setShowAddDialog(false); 
+                  setNewPin(''); 
+                  setNewLabel('');
+                  setSelectedIcon(ICONS[0].name);
+                }}
+                className="text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-purple-200 mb-2">Device Name</label>
+                <input
+                  type="text"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder="e.g., Living Room Light"
+                  className="w-full px-4 py-3 bg-purple-950/50 rounded-xl border border-purple-800/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all text-white placeholder-purple-500/50"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-purple-200 mb-2">GPIO PIN</label>
+                <input
+                  type="number"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value)}
+                  placeholder="e.g., 13"
+                  className="w-full px-4 py-3 bg-purple-950/50 rounded-xl border border-purple-800/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all text-white placeholder-purple-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-purple-200 mb-3">Select Icon</label>
+                <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto p-3 bg-purple-950/30 rounded-xl border border-purple-800/30">
+                  {ICONS.map((icon) => {
+                    const IconComponent = icon.component;
+                    return (
+                      <button
+                        key={icon.name}
+                        onClick={() => setSelectedIcon(icon.name)}
+                        className={`p-3 rounded-lg transition-all duration-300 flex items-center justify-center ${
+                          selectedIcon === icon.name
+                            ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/50 scale-110'
+                            : 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-300 hover:text-purple-200'
+                        }`}
+                      >
+                        <IconComponent size={20} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-purple-800/30">
+                <div className="flex items-center gap-3 p-3 bg-purple-950/30 rounded-lg border border-purple-800/30">
+                  <div className="text-3xl">
+                    {ICONS.find(i => i.name === selectedIcon)?.component && 
+                      (() => {
+                        const IconComponent = ICONS.find(i => i.name === selectedIcon)?.component;
+                        return IconComponent ? <IconComponent size={32} className="text-purple-400" /> : null;
+                      })()
+                    }
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-400/60">Preview</p>
+                    <p className="text-white font-medium">{newLabel || 'Device Name'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { 
+                  setShowAddDialog(false); 
+                  setNewPin(''); 
+                  setNewLabel('');
+                  setSelectedIcon(ICONS[0].name);
+                }}
+                className="flex-1 px-4 py-3 bg-purple-900/50 hover:bg-purple-800/50 rounded-xl transition-all font-medium text-purple-200"
               >
                 Cancel
               </button>
               <button
                 onClick={addDevice}
-                disabled={!newPin}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-lg transition-colors"
+                disabled={!newPin || !newLabel.trim()}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-purple-900/50 disabled:to-purple-900/50 disabled:text-purple-600 disabled:cursor-not-allowed rounded-xl font-medium transition-all text-white shadow-lg shadow-purple-500/30 disabled:shadow-none"
               >
-                Save
+                Create Device
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <footer className="p-4 border-t border-zinc-800">
-        <div className="flex gap-3 max-w-4xl mx-auto">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 bg-zinc-800 rounded-lg border border-zinc-700 focus:outline-none focus:border-blue-500"
-            disabled={!connected}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!connected}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
-          >
-            Send
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }

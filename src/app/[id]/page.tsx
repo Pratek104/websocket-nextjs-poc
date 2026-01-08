@@ -120,14 +120,29 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
       if (msg.pin) {
         const pinKey = Number(Object.keys(msg.pin)[0]);
         const pinValue = msg.pin[pinKey];
-        setDevices(prev => prev.map(d => 
-          d.pin === pinKey ? { ...d, state: pinValue === 1 } : d
-        ));
+        setDevices(prev => {
+          const updated = prev.map(d => 
+            d.pin === pinKey ? { ...d, state: pinValue === 1 } : d
+          );
+          // Save to localStorage
+          localStorage.setItem(`devices-${id}`, JSON.stringify(updated));
+          return updated;
+        });
       }
     };
   };
 
   useEffect(() => {
+    // Load devices from localStorage
+    const savedDevices = localStorage.getItem(`devices-${id}`);
+    if (savedDevices) {
+      try {
+        setDevices(JSON.parse(savedDevices));
+      } catch (e) {
+        console.error('Failed to load devices:', e);
+      }
+    }
+
     connectWebSocket();
 
     return () => {
@@ -147,12 +162,18 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
       alert('This PIN already exists!');
       return;
     }
-    setDevices(prev => [...prev, { 
+    const newDevice = { 
       pin: pinNumber, 
       state: false, 
       label: newLabel.trim(),
       icon: selectedIcon 
-    }]);
+    };
+    const updatedDevices = [...devices, newDevice];
+    setDevices(updatedDevices);
+    
+    // Save to localStorage
+    localStorage.setItem(`devices-${id}`, JSON.stringify(updatedDevices));
+    
     setNewPin('');
     setNewLabel('');
     setSelectedIcon(ICONS[0].name);
@@ -166,9 +187,13 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
     if (!device) return;
 
     const newState = !device.state;
-    setDevices(prev => prev.map(d => 
+    const updatedDevices = devices.map(d => 
       d.pin === pin ? { ...d, state: newState } : d
-    ));
+    );
+    setDevices(updatedDevices);
+    
+    // Save to localStorage
+    localStorage.setItem(`devices-${id}`, JSON.stringify(updatedDevices));
 
     const msg = {
       id: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
@@ -180,7 +205,11 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
   };
 
   const removeDevice = (pin: number) => {
-    setDevices(prev => prev.filter(d => d.pin !== pin));
+    const updatedDevices = devices.filter(d => d.pin !== pin);
+    setDevices(updatedDevices);
+    
+    // Save to localStorage
+    localStorage.setItem(`devices-${id}`, JSON.stringify(updatedDevices));
   };
 
   return (

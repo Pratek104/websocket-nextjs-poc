@@ -25,10 +25,10 @@ app.prepare().then(() => {
 
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
-    const instanceId = url.searchParams.get('instanceId');
+    const instanceId = url.searchParams.get('deviceId') || url.searchParams.get('instanceId');
 
     if (!instanceId) {
-      ws.close(1008, 'Instance ID required');
+      ws.close(1008, 'Device ID required');
       return;
     }
 
@@ -38,7 +38,7 @@ app.prepare().then(() => {
     }
     instances.get(instanceId)!.add(ws);
 
-    console.log(`Client connected to instance: ${instanceId}`);
+    console.log(`Client connected to device: ${instanceId}`);
 
     // Keepalive ping every 30 seconds
     const pingInterval = setInterval(() => {
@@ -83,7 +83,7 @@ app.prepare().then(() => {
           instances.delete(instanceId);
         }
       }
-      console.log(`Client disconnected from instance: ${instanceId}`);
+      console.log(`Client disconnected from device: ${instanceId}`);
     });
   });
 

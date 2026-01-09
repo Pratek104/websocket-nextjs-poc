@@ -39,7 +39,7 @@ export default function Home() {
         <div className="text-center mb-12 pt-12">
           <HomeIcon size={64} className="mx-auto mb-4 text-white" />
           <h1 className="text-5xl font-bold mb-3 text-white">
-            Smart Home Control
+            Automa
           </h1>
           <p className="text-zinc-500 text-lg">Manage your IoT devices from anywhere</p>
         </div>
@@ -65,24 +65,25 @@ export default function Home() {
             value={newId}
             onChange={(e) => setNewId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createInstance()}
-            placeholder="Enter instance name (optional)"
+            placeholder="Enter Module Name"
             className="flex-1 px-6 py-4 bg-zinc-900 rounded-xl border border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors text-lg"
           />
           <button
             onClick={createInstance}
-            className="px-8 py-4 bg-white text-black hover:bg-zinc-200 rounded-xl font-medium transition-all text-lg"
+            disabled={!newId.trim()}
+            className="px-8 py-4 bg-white text-black hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed rounded-xl font-medium transition-all text-lg"
           >
-            Create Instance
+            Create
           </button>
         </div>
 
         <div>
-          <h2 className="text-xl font-semibold mb-4">Your Instances</h2>
+          <h2 className="text-xl font-semibold mb-4">Your Modules</h2>
           {instances.length === 0 ? (
             <div className="text-center py-16 bg-zinc-900 rounded-xl border border-zinc-800">
               <Server size={48} className="mx-auto mb-3 text-zinc-700" />
-              <p className="text-zinc-500">No instances yet</p>
-              <p className="text-zinc-600 text-sm mt-2">Create your first instance to start controlling devices</p>
+              <p className="text-zinc-500">No modules yet</p>
+              <p className="text-zinc-600 text-sm mt-2">Create your first module to start controlling devices</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">

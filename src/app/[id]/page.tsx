@@ -226,7 +226,7 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
               <h1 className="text-2xl font-bold text-white">
                 {id}
               </h1>
-              <p className="text-sm text-zinc-600">Smart Device Control</p>
+              <p className="text-sm text-zinc-600">Automa</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -235,6 +235,17 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
                 Reconnecting... {reconnectAttempts}/10
               </div>
             )}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(id);
+                alert('Device ID copied to clipboard!');
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors"
+              title="Copy Device ID"
+            >
+              <span className="text-xs text-zinc-500 font-mono">Device ID:</span>
+              <span className="text-sm font-mono text-zinc-300">{id}</span>
+            </button>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700">
               <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`} />
               <span className="text-sm">{connected ? 'Connected' : 'Disconnected'}</span>

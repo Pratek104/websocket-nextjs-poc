@@ -21,10 +21,10 @@ const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url!, `http://${req.headers.host}`);
-  const instanceId = url.searchParams.get('instanceId');
+  const instanceId = url.searchParams.get('deviceId') || url.searchParams.get('instanceId');
 
   if (!instanceId) {
-    ws.close(1008, 'Instance ID required');
+    ws.close(1008, 'Device ID required');
     return;
   }
 
@@ -33,7 +33,7 @@ wss.on('connection', (ws, req) => {
   }
   instances.get(instanceId)!.add(ws);
 
-  console.log(`Client connected to instance: ${instanceId}`);
+  console.log(`Client connected to device: ${instanceId}`);
 
   ws.on('message', (data) => {
     try {
@@ -65,7 +65,7 @@ wss.on('connection', (ws, req) => {
         instances.delete(instanceId);
       }
     }
-    console.log(`Client disconnected from instance: ${instanceId}`);
+    console.log(`Client disconnected from device: ${instanceId}`);
   });
 });
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Home as HomeIcon, Server } from 'lucide-react';
 
 export default function Home() {
@@ -42,6 +43,15 @@ export default function Home() {
             Automa
           </h1>
           <p className="text-zinc-500 text-lg">Manage your IoT devices from anywhere</p>
+          <div className="mt-6">
+            <Link
+              href="/devices"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-all"
+            >
+              <Server size={20} />
+              Device Management Dashboard
+            </Link>
+          </div>
         </div>
         
         {currentUrl && (

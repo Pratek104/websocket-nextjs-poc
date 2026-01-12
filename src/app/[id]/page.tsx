@@ -77,59 +77,66 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
     const name = sender || `User-${Math.random().toString(36).slice(2, 6)}`;
     if (!sender) setSender(name);
 
-    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://194.163.172.56:3013`;
+    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://localhost:3013`;
     const fullUrl = `${baseUrl}?instanceId=${id}`;
     
     setWsUrl(baseUrl);
     console.log(`[WS] Connecting to: ${fullUrl}`);
-    const ws = new WebSocket(fullUrl);
-    wsRef.current = ws;
+    
+    try {
+      const ws = new WebSocket(fullUrl);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      console.log('[WS] Connected');
-      setConnected(true);
-      setReconnectAttempts(0);
-    };
+      ws.onopen = () => {
+        console.log('[WS] Connected');
+        setConnected(true);
+        setReconnectAttempts(0);
+      };
 
-    ws.onclose = (event) => {
-      console.log(`[WS] Disconnected - Code: ${event.code}, Reason: ${event.reason}`);
+      ws.onclose = (event) => {
+        console.log(`[WS] Disconnected - Code: ${event.code}, Reason: ${event.reason}`);
+        setConnected(false);
+        
+        // Auto-reconnect after 3 seconds
+        if (reconnectAttempts < 10) {
+          console.log(`[WS] Reconnecting in 3s... (attempt ${reconnectAttempts + 1})`);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setReconnectAttempts(prev => prev + 1);
+            connectWebSocket();
+          }, 3000);
+        } else {
+          console.log('[WS] Max reconnect attempts reached');
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('[WS] Connection error. Make sure the WebSocket server is running on', baseUrl);
+        console.error('[WS] Error details:', error);
+        setConnected(false);
+      };
+
+      ws.onmessage = (event) => {
+        console.log('[WS] Message received:', event.data);
+        const msg = JSON.parse(event.data) as Message;
+        
+        // Sync device state from incoming pin messages
+        if (msg.pin) {
+          const pinKey = Number(Object.keys(msg.pin)[0]);
+          const pinValue = msg.pin[pinKey];
+          setDevices(prev => {
+            const updated = prev.map(d => 
+              d.pin === pinKey ? { ...d, state: pinValue === 1 } : d
+            );
+            // Save to localStorage
+            localStorage.setItem(`devices-${id}`, JSON.stringify(updated));
+            return updated;
+          });
+        }
+      };
+    } catch (error) {
+      console.error('[WS] Failed to create WebSocket connection:', error);
       setConnected(false);
-      
-      // Auto-reconnect after 3 seconds
-      if (reconnectAttempts < 10) {
-        console.log(`[WS] Reconnecting in 3s... (attempt ${reconnectAttempts + 1})`);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          setReconnectAttempts(prev => prev + 1);
-          connectWebSocket();
-        }, 3000);
-      } else {
-        console.log('[WS] Max reconnect attempts reached');
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('[WS] Error:', error);
-      setConnected(false);
-    };
-
-    ws.onmessage = (event) => {
-      console.log('[WS] Message received:', event.data);
-      const msg = JSON.parse(event.data) as Message;
-      
-      // Sync device state from incoming pin messages
-      if (msg.pin) {
-        const pinKey = Number(Object.keys(msg.pin)[0]);
-        const pinValue = msg.pin[pinKey];
-        setDevices(prev => {
-          const updated = prev.map(d => 
-            d.pin === pinKey ? { ...d, state: pinValue === 1 } : d
-          );
-          // Save to localStorage
-          localStorage.setItem(`devices-${id}`, JSON.stringify(updated));
-          return updated;
-        });
-      }
-    };
+    }
   };
 
   useEffect(() => {
@@ -233,6 +240,11 @@ export default function InstancePage({ params }: { params: Promise<{ id: string 
             {wsUrl && reconnectAttempts > 0 && (
               <div className="text-xs text-zinc-500 font-mono">
                 Reconnecting... {reconnectAttempts}/10
+              </div>
+            )}
+            {!connected && reconnectAttempts >= 10 && (
+              <div className="text-xs text-red-400 font-mono">
+                Connection failed. Start server: npm run dev
               </div>
             )}
             <button

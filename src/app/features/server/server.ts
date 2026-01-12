@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
+const { deviceStore } = require('../../../lib/shared-device-store.js');
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -32,6 +33,19 @@ app.prepare().then(() => {
       return;
     }
 
+    // Register or update device
+    const existingDevice = deviceStore.getDevice(instanceId);
+    if (!existingDevice) {
+      deviceStore.registerDevice(instanceId);
+      deviceStore.addLog({
+        deviceId: instanceId,
+        level: 'info',
+        message: 'Device registered',
+      });
+    } else {
+      deviceStore.updateDeviceStatus(instanceId, 'online');
+    }
+
     // Add to instance room
     if (!instances.has(instanceId)) {
       instances.set(instanceId, new Set());
@@ -39,6 +53,33 @@ app.prepare().then(() => {
     instances.get(instanceId)!.add(ws);
 
     console.log(`Client connected to device: ${instanceId}`);
+
+    // Log connection interaction
+    deviceStore.addInteraction({
+      deviceId: instanceId,
+      type: 'message',
+      direction: 'inbound',
+      data: { event: 'connected' },
+    });
+
+    // Send last operation to newly connected client
+    const lastOperation = deviceStore.getLastOperation(instanceId);
+    if (lastOperation) {
+      ws.send(JSON.stringify({
+        type: 'last_operation',
+        data: lastOperation,
+        timestamp: new Date().toISOString(),
+      }));
+      console.log(`Sent last operation to device: ${instanceId}`);
+    }
+
+    // Send connection acknowledgment with device info
+    ws.send(JSON.stringify({
+      type: 'connection_ack',
+      deviceId: instanceId,
+      timestamp: new Date().toISOString(),
+      message: 'Connected successfully',
+    }));
 
     // Keepalive ping every 30 seconds
     const pingInterval = setInterval(() => {
@@ -54,6 +95,61 @@ app.prepare().then(() => {
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
+        
+        // Log interaction
+        deviceStore.addInteraction({
+          deviceId: instanceId,
+          type: 'message',
+          direction: 'inbound',
+          data: message,
+        });
+
+        // Handle operation messages
+        if (message.type === 'operation') {
+          const operation = deviceStore.addOperation({
+            deviceId: instanceId,
+            type: message.operationType || 'command',
+            action: message.action,
+            payload: message.payload,
+            status: 'pending',
+          });
+
+          // Log operation
+          deviceStore.addLog({
+            deviceId: instanceId,
+            level: 'info',
+            message: `Operation ${message.action} initiated`,
+            metadata: { operationId: operation.id },
+          });
+        }
+
+        // Handle operation status updates
+        if (message.type === 'operation_status' && message.operationId) {
+          deviceStore.updateOperationStatus(
+            instanceId,
+            message.operationId,
+            message.status,
+            message.error
+          );
+
+          deviceStore.addLog({
+            deviceId: instanceId,
+            level: message.status === 'failed' ? 'error' : 'info',
+            message: `Operation ${message.operationId} ${message.status}`,
+            metadata: { error: message.error },
+          });
+        }
+
+        // Handle log messages
+        if (message.type === 'log') {
+          deviceStore.addLog({
+            deviceId: instanceId,
+            level: message.level || 'info',
+            message: message.message,
+            metadata: message.metadata,
+          });
+        }
+
         const payload = JSON.stringify({
           ...message,
           instanceId,
@@ -66,11 +162,24 @@ app.prepare().then(() => {
           clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
               client.send(payload);
+              
+              // Log outbound interaction
+              deviceStore.addInteraction({
+                deviceId: instanceId,
+                type: 'message',
+                direction: 'outbound',
+                data: message,
+              });
             }
           });
         }
       } catch (err) {
         ws.send(JSON.stringify({ error: 'Invalid JSON' }));
+        deviceStore.addLog({
+          deviceId: instanceId,
+          level: 'error',
+          message: 'Invalid JSON received',
+        });
       }
     });
 
@@ -81,8 +190,24 @@ app.prepare().then(() => {
         clients.delete(ws);
         if (clients.size === 0) {
           instances.delete(instanceId);
+          deviceStore.updateDeviceStatus(instanceId, 'offline');
         }
       }
+
+      // Log disconnection
+      deviceStore.addInteraction({
+        deviceId: instanceId,
+        type: 'message',
+        direction: 'inbound',
+        data: { event: 'disconnected' },
+      });
+
+      deviceStore.addLog({
+        deviceId: instanceId,
+        level: 'info',
+        message: 'Device disconnected',
+      });
+
       console.log(`Client disconnected from device: ${instanceId}`);
     });
   });

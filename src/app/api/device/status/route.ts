@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
   // In a real implementation, you would query the actual device state
   // For now, we'll return a mock response
-  const state = 0; // Mock state
+  const state: number = 0; // Mock state (0 or 1)
   const action = state === 1 ? 'ON' : 'OFF';
 
   return NextResponse.json({
